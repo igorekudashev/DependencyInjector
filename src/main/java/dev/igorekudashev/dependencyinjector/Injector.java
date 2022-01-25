@@ -2,10 +2,12 @@ package dev.igorekudashev.dependencyinjector;
 
 
 import dev.igorekudashev.dependencyinjector.annotations.StaticImport;
+import dev.igorekudashev.dependencyinjector.exceptions.InvalidDependencyField;
 
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,10 +36,14 @@ public class Injector {
 
     private void load(Class clazz) {
         getFieldsForInject(clazz).forEach(field -> {
-            try {
-                field.set(clazz, context.get(field.getType()));
-            } catch (IllegalAccessException e) {
-                e.printStackTrace();
+            if (Modifier.isStatic(field.getModifiers())) {
+                try {
+                    field.set(clazz, context.get(field.getType()));
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                }
+            } else {
+                throw new InvalidDependencyField(clazz, field);
             }
         });
     }
