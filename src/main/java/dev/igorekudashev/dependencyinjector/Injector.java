@@ -3,23 +3,23 @@ package dev.igorekudashev.dependencyinjector;
 
 import dev.igorekudashev.dependencyinjector.annotations.StaticImport;
 import dev.igorekudashev.dependencyinjector.exceptions.InvalidDependencyField;
+import dev.igorekudashev.dependencyinjector.exceptions.NoAvailableFactoryException;
 
-import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.PriorityQueue;
+import java.util.Queue;
 import java.util.stream.Collectors;
 
 public class Injector {
 
     private final String rootPackageName;
-
-    private final Context context = new Context();
 
     public Injector(String rootPackageName) {
         this.rootPackageName = rootPackageName;
@@ -34,63 +34,48 @@ public class Injector {
         this(pack.getName());
     }
 
-    private void load(Class clazz) {
-        getFieldsForInject(clazz).forEach(field -> {
-            if (Modifier.isStatic(field.getModifiers())) {
-                try {
-                    field.set(clazz, context.get(field.getType()));
-                } catch (IllegalAccessException e) {
-                    e.printStackTrace();
-                }
-            } else {
-                throw new InvalidDependencyField(clazz, field);
-            }
-        });
-    }
-
     private void inject() {
         try {
-            getClasses().forEach(this::load);
+            Queue<Dependency> dependencies = new PriorityQueue<>();
+            Map<Class, List<Field>> injectFields = new HashMap<>();
+            Utils.getClasses(rootPackageName).forEach(clazz -> {
+                Dependency dependency = Dependency.getFromClass(clazz);
+                if (dependency != null) {
+                    dependencies.offer(dependency);
+                } else {
+                    getFieldsForInject(clazz).forEach(field -> {
+                        injectFields.putIfAbsent(field.getType(), new ArrayList<>());
+                        injectFields.get(field.getType()).add(field);
+                    });
+                }
+            });
+            while (dependencies.peek() != null) {
+                Dependency dependency = dependencies.poll();
+                if (injectFields.containsKey(dependency.getDependencyClass())) {
+                    injectFields.remove(dependency.getDependencyClass()).forEach(field -> {
+                        if (Modifier.isStatic(field.getModifiers())) {
+                            try {
+                                field.set(field.getDeclaringClass(), dependency.buildObject());
+                            } catch (IllegalAccessException e) {
+                                e.printStackTrace();
+                            }
+                        } else {
+                            throw new InvalidDependencyField(field.getDeclaringClass(), field);
+                        }
+                    });
+                }
+            }
+            if (!injectFields.isEmpty()) {
+                throw new NoAvailableFactoryException(injectFields.keySet().toArray(new Class[0])[0]);
+            }
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
     }
 
-    private List<Class> getClasses() throws ClassNotFoundException, IOException {
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        String path = rootPackageName.replace('.', '/');
-        Enumeration<URL> resources = classLoader.getResources(path);
-        List<File> dirs = new ArrayList<>();
-        while (resources.hasMoreElements()) {
-            URL resource = resources.nextElement();
-            dirs.add(new File(resource.getFile()));
-        }
-        ArrayList<Class> classes = new ArrayList<>();
-        for (File directory : dirs) {
-            classes.addAll(findClasses(directory, rootPackageName));
-        }
-        return classes;
-    }
-
-    private List<Class> findClasses(File directory, String packageName) throws ClassNotFoundException {
-        List<Class> classes = new ArrayList<>();
-        if (!directory.exists()) {
-            return classes;
-        }
-        File[] files = directory.listFiles();
-        for (File file : files) {
-            if (file.isDirectory()) {
-                classes.addAll(findClasses(file, packageName + "." + file.getName()));
-            } else if (file.getName().endsWith(".class")) {
-                classes.add(Class.forName(packageName + '.' + file.getName().substring(0, file.getName().length() - 6)));
-            }
-        }
-        return classes;
-    }
-
     private List<Field> getFieldsForInject(Class clazz) {
         return Arrays.stream(clazz.getDeclaredFields())
-                .filter(field -> field.getAnnotation(StaticImport.class) != null)
+                .filter(field -> field.isAnnotationPresent(StaticImport.class))
                 .peek(field -> field.setAccessible(true))
                 .collect(Collectors.toList());
     }
