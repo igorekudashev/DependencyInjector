@@ -19,22 +19,15 @@ import java.util.stream.Collectors;
 
 public class Injector {
 
-    private final String rootPackageName;
-
-    public Injector(String rootPackageName) {
-        this.rootPackageName = rootPackageName;
-        inject();
+    public static void inject(Class clazz) {
+        inject(clazz.getPackageName());
     }
 
-    public Injector(Class clazz) {
-        this(clazz.getPackageName());
+    public static void inject(Package pack) {
+        inject(pack.getName());
     }
 
-    public Injector(Package pack) {
-        this(pack.getName());
-    }
-
-    private void inject() {
+    public static void inject(String rootPackageName) {
         try {
             Queue<Dependency> dependencies = new PriorityQueue<>();
             Map<Class, List<Field>> injectFields = new HashMap<>();
@@ -73,7 +66,7 @@ public class Injector {
         }
     }
 
-    private List<Field> getFieldsForInject(Class clazz) {
+    private static List<Field> getFieldsForInject(Class clazz) {
         return Arrays.stream(clazz.getDeclaredFields())
                 .filter(field -> field.isAnnotationPresent(StaticImport.class))
                 .peek(field -> field.setAccessible(true))
