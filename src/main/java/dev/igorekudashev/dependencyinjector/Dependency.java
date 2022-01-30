@@ -20,11 +20,11 @@ import java.util.stream.Collectors;
 
 public class Dependency implements Comparable<Dependency> {
 
-    private final Class clazz;
+    private final Class<?> clazz;
     private final int order;
-    private ThrowingSupplier<Object> supplier;
+    private final ThrowingSupplier<Object> supplier;
 
-    private Dependency(Class clazz, ThrowingSupplier<Object> supplier, int order) {
+    private Dependency(Class<?> clazz, ThrowingSupplier<Object> supplier, int order) {
         this.clazz = clazz;
         this.supplier = supplier;
         this.order = order;
@@ -34,11 +34,11 @@ public class Dependency implements Comparable<Dependency> {
         return new Dependency(object.getClass(), () -> object, order);
     }
 
-    public static <C extends Class> Dependency getFromClass(C clazz) {
+    public static <C extends Class<?>> Dependency getFromClass(C clazz) {
         List<Method> factoryMethods = Arrays.stream(clazz.getDeclaredMethods())
                 .filter(method -> method.isAnnotationPresent(Factory.class))
                 .collect(Collectors.toList());
-        List<Constructor> constructors = Arrays.stream(clazz.getDeclaredConstructors())
+        List<Constructor<?>> constructors = Arrays.stream(clazz.getDeclaredConstructors())
                 .filter(constructor -> constructor.isAnnotationPresent(Factory.class))
                 .collect(Collectors.toList());
         if (factoryMethods.size() + constructors.size() == 0) {
@@ -50,7 +50,7 @@ public class Dependency implements Comparable<Dependency> {
         ThrowingSupplier<Object> builder;
         if (factoryMethods.isEmpty()) {
             executable = constructors.get(0);
-            builder = () -> createFromConstructor(clazz, (Constructor) executable);
+            builder = () -> createFromConstructor(clazz, (Constructor<?>) executable);
         } else {
             executable = factoryMethods.get(0);
             builder = () -> createFromFactoryMethod(clazz, (Method) executable);
@@ -58,7 +58,7 @@ public class Dependency implements Comparable<Dependency> {
         return new Dependency(clazz, builder, executable.getAnnotation(Factory.class).value());
     }
 
-    private static <C extends Class> Object createFromFactoryMethod(C clazz, Method method) throws InvocationTargetException, IllegalAccessException {
+    private static <C extends Class<?>> Object createFromFactoryMethod(C clazz, Method method) throws InvocationTargetException, IllegalAccessException {
         if (!Modifier.isStatic(method.getModifiers()) || method.getParameterTypes().length != 0) {
             throw new InvalidFactoryException(clazz, method);
         } else if (!method.getReturnType().equals(clazz)) {
@@ -68,7 +68,7 @@ public class Dependency implements Comparable<Dependency> {
         return method.invoke(clazz);
     }
 
-    private static <C extends Class> Object createFromConstructor(C clazz, Constructor constructor) throws InvocationTargetException, InstantiationException, IllegalAccessException {
+    private static <C extends Class<?>> Object createFromConstructor(C clazz, Constructor<?> constructor) throws InvocationTargetException, InstantiationException, IllegalAccessException {
         if (constructor.getParameterTypes().length != 0) {
             throw new InvalidFactoryException(clazz);
         }
@@ -81,7 +81,7 @@ public class Dependency implements Comparable<Dependency> {
         return order - o.order;
     }
 
-    public Class getDependencyClass() {
+    public Class<?> getDependencyClass() {
         return clazz;
     }
 

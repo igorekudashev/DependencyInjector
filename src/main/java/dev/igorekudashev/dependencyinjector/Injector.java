@@ -11,15 +11,18 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Queue;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class Injector {
 
     private static ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+    private static final Set<Class<?>> classes = new HashSet<>();
     private static final Queue<Dependency> dependencies = new PriorityQueue<>();
     private static boolean logging = false;
 
@@ -31,7 +34,7 @@ public class Injector {
         dependencies.offer(Dependency.getFromObject(object, order));
     }
 
-    public static void inject(Class clazz) {
+    public static void inject(Class<?> clazz) {
         inject(clazz.getPackageName());
     }
 
@@ -42,8 +45,9 @@ public class Injector {
     public static void inject(String rootPackageName) {
         log(String.format("Starting injection in package %s..", rootPackageName));
         try {
-            Map<Class, List<Field>> injectFields = new HashMap<>();
-            Utils.getClasses(classLoader, rootPackageName).forEach(clazz -> {
+            Map<Class<?>, List<Field>> injectFields = new HashMap<>();
+            classes.addAll(Utils.getClasses(classLoader, rootPackageName));
+            classes.forEach(clazz -> {
                 log(String.format("Parsing %s..", clazz.getSimpleName()));
                 Dependency dependency = Dependency.getFromClass(clazz);
                 if (dependency != null) {
@@ -82,7 +86,7 @@ public class Injector {
         }
     }
 
-    private static List<Field> getFieldsForInject(Class clazz) {
+    private static List<Field> getFieldsForInject(Class<?> clazz) {
         return Arrays.stream(clazz.getDeclaredFields())
                 .filter(field -> field.isAnnotationPresent(StaticImport.class))
                 .peek(field -> field.setAccessible(true))
@@ -95,6 +99,10 @@ public class Injector {
 
     public static void setClassLoader(ClassLoader classLoader) {
         Injector.classLoader = classLoader;
+    }
+
+    public static void addClassesForLoad(Set<Class<?>> classes) {
+        Injector.classes.addAll(classes);
     }
 
     private static void log(String string) {
