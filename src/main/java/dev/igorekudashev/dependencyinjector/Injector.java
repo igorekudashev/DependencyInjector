@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 public class Injector {
 
     private static final Queue<Dependency> dependencies = new PriorityQueue<>();
+    private static boolean logging = false;
 
     public static void addDependency(Object object) {
         addDependency(object, 0);
@@ -44,10 +45,12 @@ public class Injector {
                 Dependency dependency = Dependency.getFromClass(clazz);
                 if (dependency != null) {
                     dependencies.offer(dependency);
+                    log(String.format("Dependency class %s loaded", clazz.getSimpleName()));
                 } else {
                     getFieldsForInject(clazz).forEach(field -> {
                         injectFields.putIfAbsent(field.getType(), new ArrayList<>());
                         injectFields.get(field.getType()).add(field);
+                        log(String.format("Dependency field %s %s in class %s found", field.getType().getSimpleName(), field.getName(), clazz.getSimpleName()));
                     });
                 }
             });
@@ -58,6 +61,7 @@ public class Injector {
                         if (Modifier.isStatic(field.getModifiers())) {
                             try {
                                 field.set(field.getDeclaringClass(), dependency.buildObject());
+                                log(String.format("Dependency field %s %s in class %s injected", field.getType().getSimpleName(), field.getName(), field.getDeclaringClass().getSimpleName()));
                             } catch (IllegalAccessException e) {
                                 e.printStackTrace();
                             }
@@ -80,5 +84,15 @@ public class Injector {
                 .filter(field -> field.isAnnotationPresent(StaticImport.class))
                 .peek(field -> field.setAccessible(true))
                 .collect(Collectors.toList());
+    }
+
+    public static void setLogging(boolean logging) {
+        Injector.logging = logging;
+    }
+
+    private static void log(String string) {
+        if (logging) {
+            System.out.println("[Injector] " + string);
+        }
     }
 }
