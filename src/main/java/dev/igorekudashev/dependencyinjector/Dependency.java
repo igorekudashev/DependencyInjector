@@ -85,9 +85,6 @@ public class Dependency implements Comparable<Dependency> {
             throw new InvalidFactoryException(clazz);
         }
         constructor.setAccessible(true);
-        if (!constructor.isAnnotationPresent(Factory.class)) {
-            Injector.log(String.format("Unrecommended dependency initialization from default constructor in class %s", constructor.getDeclaringClass().getName()));
-        }
         return constructor.newInstance();
     }
 
