@@ -39,10 +39,11 @@ public class Injector {
     }
 
     public static void inject(String rootPackageName) {
+        log(String.format("Starting injection in package %s..", rootPackageName));
         try {
             Map<Class, List<Field>> injectFields = new HashMap<>();
             Utils.getClasses(rootPackageName).forEach(clazz -> {
-                log(String.format("Parsing %s...", clazz.getSimpleName()));
+                log(String.format("Parsing %s..", clazz.getSimpleName()));
                 Dependency dependency = Dependency.getFromClass(clazz);
                 if (dependency != null) {
                     dependencies.offer(dependency);
