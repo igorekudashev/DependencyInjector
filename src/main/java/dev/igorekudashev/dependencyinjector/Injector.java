@@ -53,13 +53,12 @@ public class Injector {
                 if (dependency != null) {
                     dependencies.offer(dependency);
                     log(String.format("Dependency class %s loaded", clazz.getSimpleName()));
-                } else {
-                    getFieldsForInject(clazz).forEach(field -> {
-                        injectFields.putIfAbsent(field.getType(), new ArrayList<>());
-                        injectFields.get(field.getType()).add(field);
-                        log(String.format("Dependency field %s %s in class %s found", field.getType().getSimpleName(), field.getName(), clazz.getSimpleName()));
-                    });
                 }
+                getFieldsForInject(clazz).forEach(field -> {
+                    injectFields.putIfAbsent(field.getType(), new ArrayList<>());
+                    injectFields.get(field.getType()).add(field);
+                    log(String.format("Dependency field %s %s in class %s found", field.getType().getSimpleName(), field.getName(), clazz.getSimpleName()));
+                });
             });
             while (dependencies.peek() != null) {
                 Dependency dependency = dependencies.poll();
