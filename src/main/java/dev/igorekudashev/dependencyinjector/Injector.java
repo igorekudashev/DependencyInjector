@@ -17,6 +17,8 @@ import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class Injector {
@@ -24,6 +26,7 @@ public class Injector {
     private static ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
     private static final Set<Class<?>> classes = new HashSet<>();
     private static final Queue<Dependency> dependencies = new PriorityQueue<>();
+    private static Logger logger;
     private static boolean logging = false;
 
     public static void addDependency(Object object) {
@@ -101,13 +104,21 @@ public class Injector {
         Injector.classLoader = classLoader;
     }
 
+    public static void setLogger(Logger logger) {
+        Injector.logger = logger;
+    }
+
     public static void addClassesForLoad(Set<Class<?>> classes) {
         Injector.classes.addAll(classes);
     }
 
     static void log(String string) {
         if (logging) {
-            System.out.println("[Injector] " + string);
+            if (logger == null) {
+                System.out.println("[Injector] " + string);
+            } else {
+                logger.log(Level.INFO, "[Injector] " + string);
+            }
         }
     }
 }
