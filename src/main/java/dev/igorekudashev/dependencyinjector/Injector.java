@@ -19,6 +19,16 @@ import java.util.stream.Collectors;
 
 public class Injector {
 
+    private static final Queue<Dependency> dependencies = new PriorityQueue<>();
+
+    public static void addDependency(Object object) {
+        addDependency(object, 0);
+    }
+
+    public static void addDependency(Object object, int order) {
+        dependencies.offer(Dependency.getFromObject(object, order));
+    }
+
     public static void inject(Class clazz) {
         inject(clazz.getPackageName());
     }
@@ -29,7 +39,6 @@ public class Injector {
 
     public static void inject(String rootPackageName) {
         try {
-            Queue<Dependency> dependencies = new PriorityQueue<>();
             Map<Class, List<Field>> injectFields = new HashMap<>();
             Utils.getClasses(rootPackageName).forEach(clazz -> {
                 Dependency dependency = Dependency.getFromClass(clazz);

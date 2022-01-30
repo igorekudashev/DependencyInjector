@@ -24,10 +24,14 @@ public class Dependency implements Comparable<Dependency> {
     private final int order;
     private ThrowingSupplier<Object> supplier;
 
-    public Dependency(Class clazz, ThrowingSupplier<Object> supplier, int order) {
+    private Dependency(Class clazz, ThrowingSupplier<Object> supplier, int order) {
         this.clazz = clazz;
         this.supplier = supplier;
         this.order = order;
+    }
+
+    public static Dependency getFromObject(Object object, int order) {
+        return new Dependency(object.getClass(), () -> object, order);
     }
 
     public static <C extends Class> Dependency getFromClass(C clazz) {
