@@ -1,6 +1,7 @@
 package dev.igorekudashev.dependencyinjector;
 
 
+import dev.igorekudashev.dependencyinjector.annotations.Factory;
 import dev.igorekudashev.dependencyinjector.annotations.StaticImport;
 import dev.igorekudashev.dependencyinjector.exceptions.InvalidDependencyField;
 import dev.igorekudashev.dependencyinjector.exceptions.NoAvailableFactoryException;

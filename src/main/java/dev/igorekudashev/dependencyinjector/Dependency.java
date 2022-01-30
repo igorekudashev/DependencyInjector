@@ -3,6 +3,7 @@ package dev.igorekudashev.dependencyinjector;
 import dev.igorekudashev.dependencyinjector.annotations.Factory;
 import dev.igorekudashev.dependencyinjector.annotations.StaticImport;
 import dev.igorekudashev.dependencyinjector.exceptions.DependencyInitializationException;
+import dev.igorekudashev.dependencyinjector.exceptions.InvalidDefaultConstructorFactory;
 import dev.igorekudashev.dependencyinjector.exceptions.InvalidDependencyField;
 import dev.igorekudashev.dependencyinjector.exceptions.InvalidFactoryException;
 import dev.igorekudashev.dependencyinjector.exceptions.InvalidFactoryMethodType;
@@ -35,11 +36,20 @@ public class Dependency implements Comparable<Dependency> {
     }
 
     public static <C extends Class<?>> Dependency getFromClass(C clazz) {
+        Factory classFactoryAnnotation = clazz.getAnnotation(Factory.class);
+        if (classFactoryAnnotation != null) {
+            Constructor<?>[] declaredConstructors = clazz.getDeclaredConstructors();
+            if (declaredConstructors.length == 1 && declaredConstructors[0].getParameterTypes().length == 0) {
+                return new Dependency(clazz, () -> createFromConstructor(clazz, declaredConstructors[0]), classFactoryAnnotation.value());
+            } else {
+                throw new InvalidDefaultConstructorFactory(clazz);
+            }
+        }
         List<Method> factoryMethods = Arrays.stream(clazz.getDeclaredMethods())
                 .filter(method -> method.isAnnotationPresent(Factory.class))
                 .collect(Collectors.toList());
         List<Constructor<?>> constructors = Arrays.stream(clazz.getDeclaredConstructors())
-                .filter(constructor -> constructor.isAnnotationPresent(Factory.class) || constructor.getParameterTypes().length == 0)
+                .filter(constructor -> constructor.isAnnotationPresent(Factory.class))
                 .collect(Collectors.toList());
         if (factoryMethods.size() + constructors.size() == 0) {
             return null;
@@ -97,9 +107,5 @@ public class Dependency implements Comparable<Dependency> {
             e.printStackTrace();
             throw new DependencyInitializationException(clazz);
         }
-    }
-
-    public int getOrder() {
-        return order;
     }
 }
