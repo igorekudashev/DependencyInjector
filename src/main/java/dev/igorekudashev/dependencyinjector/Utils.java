@@ -12,8 +12,7 @@ import java.util.List;
  */
 public class Utils {
 
-    public static List<Class> getClasses(String packageName) throws ClassNotFoundException, IOException {
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+    public static List<Class> getClasses(ClassLoader classLoader, String packageName) throws ClassNotFoundException, IOException {
         String path = packageName.replace('.', '/');
         Enumeration<URL> resources = classLoader.getResources(path);
         List<File> dirs = new ArrayList<>();

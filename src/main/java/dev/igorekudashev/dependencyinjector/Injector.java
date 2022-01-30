@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 
 public class Injector {
 
+    private static ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
     private static final Queue<Dependency> dependencies = new PriorityQueue<>();
     private static boolean logging = false;
 
@@ -42,7 +43,7 @@ public class Injector {
         log(String.format("Starting injection in package %s..", rootPackageName));
         try {
             Map<Class, List<Field>> injectFields = new HashMap<>();
-            Utils.getClasses(rootPackageName).forEach(clazz -> {
+            Utils.getClasses(classLoader, rootPackageName).forEach(clazz -> {
                 log(String.format("Parsing %s..", clazz.getSimpleName()));
                 Dependency dependency = Dependency.getFromClass(clazz);
                 if (dependency != null) {
@@ -90,6 +91,10 @@ public class Injector {
 
     public static void setLogging(boolean logging) {
         Injector.logging = logging;
+    }
+
+    public static void setClassLoader(ClassLoader classLoader) {
+        Injector.classLoader = classLoader;
     }
 
     private static void log(String string) {
