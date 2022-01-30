@@ -42,6 +42,7 @@ public class Injector {
         try {
             Map<Class, List<Field>> injectFields = new HashMap<>();
             Utils.getClasses(rootPackageName).forEach(clazz -> {
+                log(String.format("Parsing %s...", clazz.getSimpleName()));
                 Dependency dependency = Dependency.getFromClass(clazz);
                 if (dependency != null) {
                     dependencies.offer(dependency);
