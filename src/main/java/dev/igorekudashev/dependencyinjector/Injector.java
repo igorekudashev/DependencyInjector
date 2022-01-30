@@ -48,16 +48,16 @@ public class Injector {
             Map<Class<?>, List<Field>> injectFields = new HashMap<>();
             classes.addAll(Utils.getClasses(classLoader, rootPackageName));
             classes.forEach(clazz -> {
-                log(String.format("Parsing %s..", clazz.getSimpleName()));
+                log(String.format("Parsing %s..", clazz.getName()));
                 Dependency dependency = Dependency.getFromClass(clazz);
                 if (dependency != null) {
                     dependencies.offer(dependency);
-                    log(String.format("Dependency class %s loaded", clazz.getSimpleName()));
+                    log(String.format("Dependency class %s loaded", clazz.getName()));
                 }
                 getFieldsForInject(clazz).forEach(field -> {
                     injectFields.putIfAbsent(field.getType(), new ArrayList<>());
                     injectFields.get(field.getType()).add(field);
-                    log(String.format("Dependency field %s %s in class %s found", field.getType().getSimpleName(), field.getName(), clazz.getSimpleName()));
+                    log(String.format("Dependency field %s %s in class %s found", field.getType().getSimpleName(), field.getName(), clazz.getName()));
                 });
             });
             while (dependencies.peek() != null) {
@@ -67,7 +67,7 @@ public class Injector {
                         if (Modifier.isStatic(field.getModifiers())) {
                             try {
                                 field.set(field.getDeclaringClass(), dependency.buildObject());
-                                log(String.format("Dependency field %s %s in class %s injected", field.getType().getSimpleName(), field.getName(), field.getDeclaringClass().getSimpleName()));
+                                log(String.format("Dependency field %s %s in class %s injected", field.getType().getSimpleName(), field.getName(), field.getDeclaringClass().getName()));
                             } catch (IllegalAccessException e) {
                                 e.printStackTrace();
                             }
@@ -83,6 +83,7 @@ public class Injector {
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
+        log("Injection completed!");
     }
 
     private static List<Field> getFieldsForInject(Class<?> clazz) {
@@ -104,7 +105,7 @@ public class Injector {
         Injector.classes.addAll(classes);
     }
 
-    private static void log(String string) {
+    static void log(String string) {
         if (logging) {
             System.out.println("[Injector] " + string);
         }

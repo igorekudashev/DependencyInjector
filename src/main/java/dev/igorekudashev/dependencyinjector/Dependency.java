@@ -39,7 +39,7 @@ public class Dependency implements Comparable<Dependency> {
                 .filter(method -> method.isAnnotationPresent(Factory.class))
                 .collect(Collectors.toList());
         List<Constructor<?>> constructors = Arrays.stream(clazz.getDeclaredConstructors())
-                .filter(constructor -> constructor.isAnnotationPresent(Factory.class))
+                .filter(constructor -> constructor.isAnnotationPresent(Factory.class) || constructor.getParameterTypes().length == 0)
                 .collect(Collectors.toList());
         if (factoryMethods.size() + constructors.size() == 0) {
             return null;
@@ -55,7 +55,9 @@ public class Dependency implements Comparable<Dependency> {
             executable = factoryMethods.get(0);
             builder = () -> createFromFactoryMethod(clazz, (Method) executable);
         }
-        return new Dependency(clazz, builder, executable.getAnnotation(Factory.class).value());
+        return new Dependency(
+                clazz, builder,
+                executable.isAnnotationPresent(Factory.class) ? executable.getAnnotation(Factory.class).value() : 10);
     }
 
     private static <C extends Class<?>> Object createFromFactoryMethod(C clazz, Method method) throws InvocationTargetException, IllegalAccessException {
@@ -73,6 +75,9 @@ public class Dependency implements Comparable<Dependency> {
             throw new InvalidFactoryException(clazz);
         }
         constructor.setAccessible(true);
+        if (!constructor.isAnnotationPresent(Factory.class)) {
+            Injector.log(String.format("Unrecommended dependency initialization from default constructor in class %s", constructor.getDeclaringClass().getName()));
+        }
         return constructor.newInstance();
     }
 
