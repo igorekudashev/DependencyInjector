@@ -1,9 +1,9 @@
 package dev.igorekudashev.dependencyinjector.exceptions;
 
 
-public class InvalidDefaultConstructorFactory extends RuntimeException {
+public class InvalidDefaultConstructorFactoryException extends RuntimeException {
 
-    public InvalidDefaultConstructorFactory(Class<?> clazz) {
+    public InvalidDefaultConstructorFactoryException(Class<?> clazz) {
         super(String.format("Class %s with @Factory annotation must only have default constructor", clazz.getName()));
     }
 }

@@ -6,7 +6,7 @@
 
     <groupId>dev.igorekudashev</groupId>
     <artifactId>DependencyInjector</artifactId>
-    <version>1.8.3</version>
+    <version>1.9</version>
 
     <properties>
         <maven.compiler.source>11</maven.compiler.source>

@@ -1,9 +1,9 @@
 package dev.igorekudashev.dependencyinjector;
 
 
-import dev.igorekudashev.dependencyinjector.annotations.Factory;
+import dev.igorekudashev.dependencyinjector.annotations.DependencyConfiguration;
 import dev.igorekudashev.dependencyinjector.annotations.StaticImport;
-import dev.igorekudashev.dependencyinjector.exceptions.InvalidDependencyField;
+import dev.igorekudashev.dependencyinjector.exceptions.InvalidDependencyFieldException;
 import dev.igorekudashev.dependencyinjector.exceptions.NoAvailableFactoryException;
 
 import java.io.IOException;
@@ -53,10 +53,10 @@ public class Injector {
             classes.addAll(Utils.getClasses(classLoader, rootPackageName));
             classes.forEach(clazz -> {
                 log(String.format("Parsing %s..", clazz.getName()));
-                Dependency dependency = Dependency.getFromClass(clazz);
-                if (dependency != null) {
-                    dependencies.offer(dependency);
-                    log(String.format("Dependency class %s loaded", clazz.getName()));
+                if (clazz.isAnnotationPresent(DependencyConfiguration.class)) {
+                    Dependency.getFromConfiguration(clazz).forEach(Injector::loadDependency);
+                } else {
+                    loadDependency(Dependency.getFromClass(clazz));
                 }
                 getFieldsForInject(clazz).forEach(field -> {
                     injectFields.putIfAbsent(field.getType(), new ArrayList<>());
@@ -76,7 +76,7 @@ public class Injector {
                                 e.printStackTrace();
                             }
                         } else {
-                            throw new InvalidDependencyField(field.getDeclaringClass(), field);
+                            throw new InvalidDependencyFieldException(field.getDeclaringClass(), field);
                         }
                     });
                 }
@@ -88,6 +88,13 @@ public class Injector {
             e.printStackTrace();
         }
         log("Injection completed!");
+    }
+
+    private static void loadDependency(Dependency dependency) {
+        if (dependency != null) {
+            dependencies.offer(dependency);
+            log(String.format("Dependency class %s loaded", dependency.getDependencyClass().getName()));
+        }
     }
 
     private static List<Field> getFieldsForInject(Class<?> clazz) {

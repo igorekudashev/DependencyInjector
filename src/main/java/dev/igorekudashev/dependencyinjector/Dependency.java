@@ -1,12 +1,11 @@
 package dev.igorekudashev.dependencyinjector;
 
+import dev.igorekudashev.dependencyinjector.annotations.DependencyConfiguration;
 import dev.igorekudashev.dependencyinjector.annotations.Factory;
-import dev.igorekudashev.dependencyinjector.annotations.StaticImport;
 import dev.igorekudashev.dependencyinjector.exceptions.DependencyInitializationException;
-import dev.igorekudashev.dependencyinjector.exceptions.InvalidDefaultConstructorFactory;
-import dev.igorekudashev.dependencyinjector.exceptions.InvalidDependencyField;
+import dev.igorekudashev.dependencyinjector.exceptions.InvalidDefaultConstructorFactoryException;
 import dev.igorekudashev.dependencyinjector.exceptions.InvalidFactoryException;
-import dev.igorekudashev.dependencyinjector.exceptions.InvalidFactoryMethodType;
+import dev.igorekudashev.dependencyinjector.exceptions.InvalidFactoryMethodTypeException;
 import dev.igorekudashev.dependencyinjector.exceptions.TooManyFactoriesException;
 
 import java.lang.reflect.Constructor;
@@ -42,7 +41,7 @@ public class Dependency implements Comparable<Dependency> {
             if (declaredConstructors.length == 1 && declaredConstructors[0].getParameterTypes().length == 0) {
                 return new Dependency(clazz, () -> createFromConstructor(clazz, declaredConstructors[0]), classFactoryAnnotation.value());
             } else {
-                throw new InvalidDefaultConstructorFactory(clazz);
+                throw new InvalidDefaultConstructorFactoryException(clazz);
             }
         }
         List<Method> factoryMethods = Arrays.stream(clazz.getDeclaredMethods())
@@ -70,11 +69,21 @@ public class Dependency implements Comparable<Dependency> {
                 executable.isAnnotationPresent(Factory.class) ? executable.getAnnotation(Factory.class).value() : 10);
     }
 
+    public static <C extends Class<?>> List<Dependency> getFromConfiguration(C clazz) {
+        return Arrays.stream(clazz.getDeclaredMethods())
+                .filter(method -> method.isAnnotationPresent(Factory.class))
+                .map(method -> {
+                    ThrowingSupplier<Object> builder = () -> createFromFactoryMethod(clazz, method);
+                    return new Dependency(method.getReturnType(), builder, method.getAnnotation(Factory.class).value());
+                })
+                .collect(Collectors.toList());
+    }
+
     private static <C extends Class<?>> Object createFromFactoryMethod(C clazz, Method method) throws InvocationTargetException, IllegalAccessException {
         if (!Modifier.isStatic(method.getModifiers()) || method.getParameterTypes().length != 0) {
             throw new InvalidFactoryException(clazz, method);
-        } else if (!method.getReturnType().equals(clazz)) {
-            throw new InvalidFactoryMethodType(clazz, method);
+        } else if (!method.getReturnType().equals(clazz) && !clazz.isAnnotationPresent(DependencyConfiguration.class)) {
+            throw new InvalidFactoryMethodTypeException(clazz, method);
         }
         method.setAccessible(true);
         return method.invoke(clazz);
