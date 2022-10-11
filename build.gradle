@@ -1,0 +1,7 @@
+plugins {
+    id 'java'
+}
+
+group = 'dev.igorekudashev'
+version = '1.9'
+description = 'DependencyInjector'
