@@ -34,7 +34,7 @@ public class Utils {
                 if (file.isDirectory()) {
                     classes.addAll(findClasses(file, fullFileName));
                 } else if (file.getName().endsWith(".class")) {
-                    classes.add(Class.forName(fullFileName.substring(0, file.getName().length() - 6)));
+                    classes.add(Class.forName(fullFileName.substring(0, fullFileName.length() - 6)));
                 }
             }
         }
