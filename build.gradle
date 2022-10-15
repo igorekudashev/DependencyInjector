@@ -1,7 +1,16 @@
 plugins {
-    id 'java'
+    id "java"
 }
 
-group = 'dev.igorekudashev'
-version = '2.0'
-description = 'DependencyInjector'
+group = "dev.igorekudashev"
+version = "2.0"
+description = "DependencyInjector"
+
+dependencies {
+    compileOnly "org.projectlombok:lombok:1.18.24"
+    annotationProcessor "org.projectlombok:lombok:1.18.24"
+}
+
+test {
+    useJUnitPlatform()
+}

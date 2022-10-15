@@ -1,13 +1,13 @@
 pluginManagement {
     repositories {
-        mavenLocal()
+        mavenCentral()
     }
 }
 
 dependencyResolutionManagement {
     repositories {
-        mavenLocal()
+        mavenCentral()
     }
 }
 
-rootProject.name = 'DependencyInjector'
+rootProject.name = "DependencyInjector"
