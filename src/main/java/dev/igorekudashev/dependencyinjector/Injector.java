@@ -5,6 +5,8 @@ import dev.igorekudashev.dependencyinjector.annotations.DependencyConfiguration;
 import dev.igorekudashev.dependencyinjector.annotations.StaticImport;
 import dev.igorekudashev.dependencyinjector.exceptions.InvalidDependencyFieldException;
 import dev.igorekudashev.dependencyinjector.exceptions.NoAvailableFactoryException;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -22,31 +24,37 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
+@Setter
+@Accessors(chain = true)
 public class Injector {
 
-    private static ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-    private static final Set<Class<?>> classes = new HashSet<>();
-    private static final Queue<Dependency> dependencies = new PriorityQueue<>();
-    private static Logger logger;
-    private static boolean logging = false;
+    private ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+    private final Set<Class<?>> classes = new HashSet<>();
+    private final Queue<Dependency> dependencies = new PriorityQueue<>();
+    private Logger logger = Logger.getLogger("DependencyInjectorLogger");
+    private boolean logging = false;
 
-    public static void addDependency(Object object) {
-        addDependency(object, 0);
+    public void addPreparedDependency(Object object) {
+        addPreparedDependency(object, 0);
     }
 
-    public static void addDependency(Object object, int order) {
-        dependencies.offer(Dependency.getFromObject(object, order));
+    public void addPreparedDependency(Object object, int order) {
+        dependencies.offer(Dependency.getFromPrepared(object, order));
     }
 
-    public static void inject(Class<?> clazz) {
+    public void addClassesForLoad(Set<Class<?>> classes) {
+        this.classes.addAll(classes);
+    }
+
+    public void inject(Class<?> clazz) {
         inject(clazz.getPackageName());
     }
 
-    public static void inject(Package pack) {
+    public void inject(Package pack) {
         inject(pack.getName());
     }
 
-    public static void inject(String rootPackageName) {
+    public void inject(String rootPackageName) {
         log(String.format("Starting injection in package %s..", rootPackageName));
         try {
             Map<Class<?>, List<Field>> injectFields = new HashMap<>();
@@ -54,7 +62,7 @@ public class Injector {
             classes.forEach(clazz -> {
                 log(String.format("Parsing %s..", clazz.getName()));
                 if (clazz.isAnnotationPresent(DependencyConfiguration.class)) {
-                    Dependency.getFromConfiguration(clazz).forEach(Injector::loadDependency);
+                    Dependency.getFromConfiguration(clazz).forEach(this::loadDependency);
                 } else {
                     loadDependency(Dependency.getFromClass(clazz));
                 }
@@ -66,11 +74,11 @@ public class Injector {
             });
             while (dependencies.peek() != null) {
                 Dependency dependency = dependencies.poll();
-                if (injectFields.containsKey(dependency.getDependencyClass())) {
-                    injectFields.remove(dependency.getDependencyClass()).forEach(field -> {
+                if (injectFields.containsKey(dependency.getType())) {
+                    injectFields.remove(dependency.getType()).forEach(field -> {
                         if (Modifier.isStatic(field.getModifiers())) {
                             try {
-                                field.set(field.getDeclaringClass(), dependency.buildObject());
+                                field.set(field.getDeclaringClass(), dependency.build());
                                 log(String.format("Dependency field %s %s in class %s injected", field.getType().getSimpleName(), field.getName(), field.getDeclaringClass().getName()));
                             } catch (IllegalAccessException e) {
                                 e.printStackTrace();
@@ -90,43 +98,23 @@ public class Injector {
         log("Injection completed!");
     }
 
-    private static void loadDependency(Dependency dependency) {
+    private void loadDependency(Dependency dependency) {
         if (dependency != null) {
             dependencies.offer(dependency);
-            log(String.format("Dependency class %s loaded", dependency.getDependencyClass().getName()));
+            log(String.format("Dependency class %s loaded", dependency.getType().getName()));
         }
     }
 
-    private static List<Field> getFieldsForInject(Class<?> clazz) {
+    private List<Field> getFieldsForInject(Class<?> clazz) {
         return Arrays.stream(clazz.getDeclaredFields())
                 .filter(field -> field.isAnnotationPresent(StaticImport.class))
                 .peek(field -> field.setAccessible(true))
                 .collect(Collectors.toList());
     }
 
-    public static void setLogging(boolean logging) {
-        Injector.logging = logging;
-    }
-
-    public static void setClassLoader(ClassLoader classLoader) {
-        Injector.classLoader = classLoader;
-    }
-
-    public static void setLogger(Logger logger) {
-        Injector.logger = logger;
-    }
-
-    public static void addClassesForLoad(Set<Class<?>> classes) {
-        Injector.classes.addAll(classes);
-    }
-
-    static void log(String string) {
+    private void log(String string) {
         if (logging) {
-            if (logger == null) {
-                System.out.println("[Injector] " + string);
-            } else {
-                logger.log(Level.INFO, "[Injector] " + string);
-            }
+            logger.log(Level.INFO, "[Injector] " + string);
         }
     }
 }

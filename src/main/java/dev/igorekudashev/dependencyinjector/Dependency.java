@@ -7,6 +7,8 @@ import dev.igorekudashev.dependencyinjector.exceptions.InvalidDefaultConstructor
 import dev.igorekudashev.dependencyinjector.exceptions.InvalidFactoryException;
 import dev.igorekudashev.dependencyinjector.exceptions.InvalidFactoryMethodTypeException;
 import dev.igorekudashev.dependencyinjector.exceptions.TooManyFactoriesException;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
@@ -15,41 +17,34 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
-
+@Getter
+@RequiredArgsConstructor
 public class Dependency implements Comparable<Dependency> {
 
-    private final Class<?> clazz;
+    private final Class<?> type;
+    private final ThrowingSupplier<Object> builder;
     private final int order;
-    private final ThrowingSupplier<Object> supplier;
 
-    private Dependency(Class<?> clazz, ThrowingSupplier<Object> supplier, int order) {
-        this.clazz = clazz;
-        this.supplier = supplier;
-        this.order = order;
-    }
-
-    public static Dependency getFromObject(Object object, int order) {
+    public static Dependency getFromPrepared(Object object, int order) {
         return new Dependency(object.getClass(), () -> object, order);
     }
 
     public static <C extends Class<?>> Dependency getFromClass(C clazz) {
         Factory classFactoryAnnotation = clazz.getAnnotation(Factory.class);
         if (classFactoryAnnotation != null) {
-            Constructor<?>[] declaredConstructors = clazz.getDeclaredConstructors();
-            if (declaredConstructors.length == 1 && declaredConstructors[0].getParameterTypes().length == 0) {
-                return new Dependency(clazz, () -> createFromConstructor(clazz, declaredConstructors[0]), classFactoryAnnotation.value());
-            } else {
-                throw new InvalidDefaultConstructorFactoryException(clazz);
-            }
+            return Arrays.stream(clazz.getDeclaredConstructors())
+                    .filter(constructor -> constructor.getParameterTypes().length == 0)
+                    .findFirst()
+                    .map(constructor -> new Dependency(clazz, () -> buildFromConstructor(constructor), classFactoryAnnotation.value()))
+                    .orElseThrow(() -> new InvalidDefaultConstructorFactoryException(clazz));
         }
         List<Method> factoryMethods = Arrays.stream(clazz.getDeclaredMethods())
                 .filter(method -> method.isAnnotationPresent(Factory.class))
-                .collect(Collectors.toList());
+                .toList();
         List<Constructor<?>> constructors = Arrays.stream(clazz.getDeclaredConstructors())
                 .filter(constructor -> constructor.isAnnotationPresent(Factory.class))
-                .collect(Collectors.toList());
+                .toList();
         if (factoryMethods.size() + constructors.size() == 0) {
             return null;
         } else if (factoryMethods.size() + constructors.size() > 1) {
@@ -59,10 +54,10 @@ public class Dependency implements Comparable<Dependency> {
         ThrowingSupplier<Object> builder;
         if (factoryMethods.isEmpty()) {
             executable = constructors.get(0);
-            builder = () -> createFromConstructor(clazz, (Constructor<?>) executable);
+            builder = () -> buildFromConstructor((Constructor<?>) executable);
         } else {
             executable = factoryMethods.get(0);
-            builder = () -> createFromFactoryMethod(clazz, (Method) executable);
+            builder = () -> buildFromMethod((Method) executable);
         }
         return new Dependency(
                 clazz, builder,
@@ -72,14 +67,15 @@ public class Dependency implements Comparable<Dependency> {
     public static <C extends Class<?>> List<Dependency> getFromConfiguration(C clazz) {
         return Arrays.stream(clazz.getDeclaredMethods())
                 .filter(method -> method.isAnnotationPresent(Factory.class))
-                .map(method -> {
-                    ThrowingSupplier<Object> builder = () -> createFromFactoryMethod(clazz, method);
-                    return new Dependency(method.getReturnType(), builder, method.getAnnotation(Factory.class).value());
-                })
-                .collect(Collectors.toList());
+                .map(method -> new Dependency(
+                                method.getReturnType(),
+                                () -> buildFromMethod(method),
+                                method.getAnnotation(Factory.class).value()))
+                .toList();
     }
 
-    private static <C extends Class<?>> Object createFromFactoryMethod(C clazz, Method method) throws InvocationTargetException, IllegalAccessException {
+    private static Object buildFromMethod(Method method) throws InvocationTargetException, IllegalAccessException {
+        Class<?> clazz = method.getDeclaringClass();
         if (!Modifier.isStatic(method.getModifiers()) || method.getParameterTypes().length != 0) {
             throw new InvalidFactoryException(clazz, method);
         } else if (!method.getReturnType().equals(clazz) && !clazz.isAnnotationPresent(DependencyConfiguration.class)) {
@@ -89,9 +85,9 @@ public class Dependency implements Comparable<Dependency> {
         return method.invoke(clazz);
     }
 
-    private static <C extends Class<?>> Object createFromConstructor(C clazz, Constructor<?> constructor) throws InvocationTargetException, InstantiationException, IllegalAccessException {
+    private static <C extends Class<?>> Object buildFromConstructor(Constructor<?> constructor) throws InvocationTargetException, InstantiationException, IllegalAccessException {
         if (constructor.getParameterTypes().length != 0) {
-            throw new InvalidFactoryException(clazz);
+            throw new InvalidFactoryException(constructor.getDeclaringClass());
         }
         constructor.setAccessible(true);
         return constructor.newInstance();
@@ -102,16 +98,12 @@ public class Dependency implements Comparable<Dependency> {
         return order - o.order;
     }
 
-    public Class<?> getDependencyClass() {
-        return clazz;
-    }
-
-    public Object buildObject() {
+    public Object build() {
         try {
-            return supplier.get();
+            return builder.get();
         } catch (Exception e) {
             e.printStackTrace();
-            throw new DependencyInitializationException(clazz);
+            throw new DependencyInitializationException(type);
         }
     }
 }
